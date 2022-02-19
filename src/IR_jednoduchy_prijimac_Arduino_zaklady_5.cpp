@@ -49,37 +49,60 @@ void setup() {
 void loop() {
   if(IrReceiver.decode()){
     //Vytisknout na sériovém monitoru
-    IrReceiver.printIRResultShort(&Serial);
-    switch(IrReceiver.decodedIRData.command){
-      case 0x00:  //zap./vyp.
-        zapnuto ^= zapnuto;
-        digitalWrite(RELE_PIN, zapnuto);
-        break;
-      case 0x01:  //funkce
-        switch(mod){
-          case 3:
-            mod = 0;
-            break;
-          default:
-            mod++;
-            break;
-        }
-        //promyslet pointery
-        moznosti[0] = pasek.getBrightness();
-        moznosti[1] = pasek.getPixelColor(1);
-        break;
-      case 0x02:  //+
-        if(moznosti[mod] <= 255 - krok){
-          moznosti[mod] += krok;
-        }
-        break;
-      case 0x03:  //-
-        if(moznosti[mod] >= 0 + krok){
-          moznosti[mod] -= krok;
-        }
+    IrReceiver.resume();
+    if(IrReceiver.decodedIRData.flags == 0){
+      IrReceiver.printIRResultShort(&Serial);
+      switch(IrReceiver.decodedIRData.command){
+        case 0x00:  //zap./vyp.
+          zapnuto = !zapnuto;
+          if(!zapnuto){
+            pasek.clear();
+          }
+          else{
+            for(byte ledka = 0; ledka < POCET_LED; ledka++){
+              pasek.setPixelColor(ledka, 255, 255, 255);
+            }
+            pasek.show();
+          }
+          Serial.print("STAV: ");
+          Serial.println(zapnuto);
+          break;
+        case 0xE:  //funkce
+          switch(mod){
+            case 3:
+              mod = 0;
+              break;
+            default:
+              mod++;
+              break;
+          }
+          Serial.print("MOD: ");
+          Serial.println(mod);
+          break;
+      }
     }
-    pasek.setBrightness(moznosti[0]);
-    pasek.setPixelColor(1, moznosti[1], moznosti[2], moznosti[3]);
-    pasek.show();
+    else{
+      switch(IrReceiver.decodedIRData.command){
+        case 0x11:  //+
+          if(moznosti[mod] <= 255 - krok){
+            moznosti[mod] += krok;
+          }
+          pasek.setBrightness(moznosti[0]);
+          for(byte ledka = 0; ledka < POCET_LED; ledka++){
+            pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
+          }
+          break;
+        case 0x15:  //-
+          if(moznosti[mod] >= 0 + krok){
+            moznosti[mod] -= krok;
+          }
+          pasek.setBrightness(moznosti[0]);
+          for(byte ledka = 0; ledka < POCET_LED; ledka++){
+            pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
+          }
+          break;
+      }
+    }
+    pasek.show();   
   }
 }
