@@ -1,7 +1,6 @@
 #define IR_PIN_PRIJIMACE 2
 #define NEOPIXEL_PIN 3
 #define INDIKATOR_PIN 4
-#define RELE_PIN 5
 #define POCET_LED 24
 
 #include <Arduino.h>
@@ -11,11 +10,11 @@
 Adafruit_NeoPixel pasek(POCET_LED, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);	//definice nového LED pásku
 Adafruit_NeoPixel indikator(1, INDIKATOR_PIN, NEO_GRB + NEO_KHZ800);	//definice nového LED pásku
 
-boolean zapnuto = false;
+boolean zapnuto;
 byte mod = 0; //0 - jas, 1 - R, 2 - G, 3 - B
-byte moznosti[4] = {255, 255, 255, 255};
+byte moznosti[4];
 
-const byte krok = 32;
+const byte krok = 17;
 
 //definice pro dekódování ovladačů od různých výrobců
 #define DECODE_DENON
@@ -40,9 +39,12 @@ void setup() {
   //zahájení činnosti Neopixel LED pásku
   pasek.begin();   
   //začátek relace přijímače
-  IrReceiver.begin(IR_PIN_PRIJIMACE);
-  //nastavit pin relé jako výstup
-  pinMode(NEOPIXEL_PIN, OUTPUT);        
+  IrReceiver.begin(IR_PIN_PRIJIMACE);   
+  for(byte moz = 0; moz < 4; moz++){
+    moznosti[moz] = 255;
+  }    
+  pasek.clear();
+  zapnuto = false;
   Serial.println("Pripraven!");
 }
 
@@ -51,17 +53,18 @@ void loop() {
     //Vytisknout na sériovém monitoru
     IrReceiver.resume();
     if(IrReceiver.decodedIRData.flags == 0){
-      IrReceiver.printIRResultShort(&Serial);
+      //IrReceiver.printIRResultShort(&Serial);
       switch(IrReceiver.decodedIRData.command){
-        case 0x00:  //zap./vyp.
+        case 0x13:  //zap./vyp. - tlačítko OK
           zapnuto = !zapnuto;
           if(!zapnuto){
             pasek.clear();
           }
           else{
             for(byte ledka = 0; ledka < POCET_LED; ledka++){
-              pasek.setPixelColor(ledka, 255, 255, 255);
+              pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
             }
+            pasek.setBrightness(moznosti[0]);
             pasek.show();
           }
           Serial.print("STAV: ");
@@ -79,30 +82,33 @@ void loop() {
           Serial.print("MOD: ");
           Serial.println(mod);
           break;
-      }
+        case 0x16:  //reset
+          setup();
+      }    
     }
-    else{
-      switch(IrReceiver.decodedIRData.command){
-        case 0x11:  //+
-          if(moznosti[mod] <= 255 - krok){
-            moznosti[mod] += krok;
-          }
-          pasek.setBrightness(moznosti[0]);
-          for(byte ledka = 0; ledka < POCET_LED; ledka++){
-            pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
-          }
-          break;
-        case 0x15:  //-
-          if(moznosti[mod] >= 0 + krok){
-            moznosti[mod] -= krok;
-          }
-          pasek.setBrightness(moznosti[0]);
-          for(byte ledka = 0; ledka < POCET_LED; ledka++){
-            pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
-          }
-          break;
-      }
+    switch(IrReceiver.decodedIRData.command){
+      case 0x11:  //+
+        if(moznosti[mod] <= 255 - krok + 1){
+          moznosti[mod] += krok;
+        }
+        pasek.setBrightness(moznosti[0]);
+        for(byte ledka = 0; ledka < POCET_LED; ledka++){
+          pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
+        }
+        break;
+      case 0x15:  //-
+        if(moznosti[mod] >= 0 + krok - 1){
+          moznosti[mod] -= krok;
+        }
+        pasek.setBrightness(moznosti[0]);
+        for(byte ledka = 0; ledka < POCET_LED; ledka++){
+          pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
+        }
+        break;
+      default:
+        break;
     }
+
     pasek.show();   
   }
 }
