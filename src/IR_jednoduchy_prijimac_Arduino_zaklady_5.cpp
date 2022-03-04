@@ -1,6 +1,5 @@
 #define IR_PIN_PRIJIMACE 2
 #define NEOPIXEL_PIN 3
-#define INDIKATOR_PIN 4
 #define POCET_LED 24
 
 #include <Arduino.h>
@@ -8,7 +7,6 @@
 #include <Adafruit_NeoPixel.h>
 
 Adafruit_NeoPixel pasek(POCET_LED, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);	//definice nového LED pásku
-Adafruit_NeoPixel indikator(1, INDIKATOR_PIN, NEO_GRB + NEO_KHZ800);	//definice nového LED pásku
 
 boolean zapnuto;
 byte mod = 0; //0 - jas, 1 - R, 2 - G, 3 - B
@@ -39,7 +37,8 @@ void setup() {
   //zahájení činnosti Neopixel LED pásku
   pasek.begin();   
   //začátek relace přijímače
-  IrReceiver.begin(IR_PIN_PRIJIMACE);   
+  IrReceiver.begin(IR_PIN_PRIJIMACE);  
+  //vynulovat všechny hodnoty proměnné moznosti pomocí cyklu 
   for(byte moz = 0; moz < 4; moz++){
     moznosti[moz] = 255;
   }    
@@ -50,9 +49,8 @@ void setup() {
 
 void loop() {
   if(IrReceiver.decode()){
-    //Vytisknout na sériovém monitoru
     IrReceiver.resume();
-    if(IrReceiver.decodedIRData.flags == 0){
+    if(IrReceiver.decodedIRData.flags == 0){  //v případě, že flags = 0, nebyl vyslán opakovací signál -> nebude neustále dokola docházet k opakování příkazu
       //IrReceiver.printIRResultShort(&Serial);
       switch(IrReceiver.decodedIRData.command){
         case 0x13:  //zap./vyp. - tlačítko OK
@@ -61,6 +59,7 @@ void loop() {
             pasek.clear();
           }
           else{
+            //nastavit jas a barvu LEDek podle proměnných
             for(byte ledka = 0; ledka < POCET_LED; ledka++){
               pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
             }
@@ -70,7 +69,7 @@ void loop() {
           Serial.print("STAV: ");
           Serial.println(zapnuto);
           break;
-        case 0xE:  //funkce
+        case 0xE:  //funkce - přepínání
           switch(mod){
             case 3:
               mod = 0;
@@ -92,6 +91,7 @@ void loop() {
           moznosti[mod] += krok;
         }
         pasek.setBrightness(moznosti[0]);
+        //nastavit novou barvu/jas dle aktuální hodnoty v poli proměnných pomocí cyklu
         for(byte ledka = 0; ledka < POCET_LED; ledka++){
           pasek.setPixelColor(ledka, moznosti[1], moznosti[2], moznosti[3]);
         }
@@ -108,7 +108,6 @@ void loop() {
       default:
         break;
     }
-
     pasek.show();   
   }
 }
